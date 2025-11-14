@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ "$(id --group "$USER_NAME")" -ne "$GID" ]; then
+    groupmod --gid "$GID" "$GROUP_NAME"
+fi
+
+if [ "$(id --user "$USER_NAME")" -ne "$UID" ]; then
+    usermod --uid "$UID" --gid "$GID" "$USER_NAME"
+fi
+
+sudo --user="$USER_NAME" env "PATH=$PATH" "$@"
