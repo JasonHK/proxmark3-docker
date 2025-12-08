@@ -44,6 +44,8 @@ COPY --from=builder /proxmark3/build/usr/bin/proxmark3 /proxmark3/build/usr/bin/
 COPY --from=builder /proxmark3/build/usr/share/proxmark3/ /usr/share/proxmark3/
 COPY --from=builder /proxmark3/build/lib/udev/rules.d/77-pm3-usb-device-blacklist.rules /lib/udev/rules.d/
 
+COPY --chmod=775 pm3-firmwares /usr/bin/
+
 
 FROM build AS prefs
 

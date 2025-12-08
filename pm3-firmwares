@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+
+find /usr/share/proxmark3/firmware -name '*.elf'
