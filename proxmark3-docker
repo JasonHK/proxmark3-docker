@@ -9,4 +9,11 @@ if [ "$(id --user "$USER_NAME")" -ne "$UID" ]; then
     usermod --uid "$UID" --gid "$GID" "$USER_NAME"
 fi
 
+if [ ! -f /proxmark3/.proxmark3/preferences.json ]; then
+    mkdir -p /proxmark3/.proxmark3
+    cp /root/.proxmark3/preferences.json /proxmark3/.proxmark3/
+fi
+
+chown --recursive "${USER_NAME}:${GROUP_NAME}" /proxmark3
+
 sudo --user="$USER_NAME" env "PATH=$PATH" "$@"
