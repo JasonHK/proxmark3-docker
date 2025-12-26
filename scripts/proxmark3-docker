@@ -19,15 +19,15 @@ if [ "$(id --user proxmark)" -ne "$UID" ]; then
     usermod --uid "$UID" --gid "$GID" proxmark
 fi
 
-if [ ! -f /proxmark/.proxmark3/preferences.json ]; then
-    mkdir -p /proxmark/.proxmark3
-    cp /root/.proxmark3/preferences.json /proxmark/.proxmark3/
-    chown proxmark:proxmark /proxmark/.proxmark3/preferences.json
-fi
-
 if [ "$(stat -c '%u:%g' /proxmark)" != "${UID}:${GID}" ]; then
     find /proxmark -xdev \( -type d -o -type f \) \
         -exec chown "${UID}:${GID}" {} +
+fi
+
+if [ ! -f /proxmark/.proxmark3/preferences.json ]; then
+    mkdir -p /proxmark/.proxmark3
+    cp -f /root/.proxmark3/preferences.json /proxmark/.proxmark3/
+    chown proxmark:proxmark /proxmark/.proxmark3/preferences.json
 fi
 
 exec gosu proxmark "$@"
