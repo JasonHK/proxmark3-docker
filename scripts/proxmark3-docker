@@ -16,4 +16,4 @@ fi
 
 chown --recursive "${USER_NAME}:${GROUP_NAME}" /proxmark3
 
-sudo --user="$USER_NAME" env "PATH=$PATH" "$@"
+exec gosu "$USER_NAME" "$@"
