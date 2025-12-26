@@ -23,6 +23,8 @@ RUN set -eux; \
 
 FROM base AS builder
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 # Install packages for compiling
 RUN set -eux; \
     apt-get install -y --no-install-recommends \
@@ -76,6 +78,8 @@ COPY --chmod=775 scripts/pm3-firmwares /usr/bin/
 
 FROM build AS prefs
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 # Generate default preferences
 RUN set -eux; \
     pm3 --offline -c "prefs set savepaths --def /proxmark/saves; prefs set savepaths --dump /proxmark/saves; prefs set savepaths --trace /proxmark/saves; prefs set color --ansi; prefs set emoji --emoji"
@@ -83,8 +87,10 @@ RUN set -eux; \
 
 FROM build AS image
 
-ARG GOSU_VERSION=1.14-1
-ARG TINI_VERSION=0.19.0-1
+ARG DEBIAN_FRONTEND=noninteractive
+
+ARG GOSU_VERSION=1.14-1+b10
+ARG TINI_VERSION=0.19.0-1+b3
 
 # Install packages for the final image
 RUN set -eux; \
