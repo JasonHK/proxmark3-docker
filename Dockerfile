@@ -83,11 +83,14 @@ RUN set -eux; \
 
 FROM build AS image
 
+ARG GOSU_VERSION=1.14-1
+ARG TINI_VERSION=0.19.0-1
+
 # Install packages for the final image
 RUN set -eux; \
     apt-get install -y --no-install-recommends \
-        gosu \
-        tini; \
+        gosu=${GOSU_VERSION} \
+        tini=${TINI_VERSION}; \
     rm -rf /var/lib/apt/lists/*; \
     \
     # Validate the installation of gosu
@@ -102,8 +105,8 @@ RUN set -eux; \
     useradd -m -u ${UID} -g ${GID} -G dialout -d /proxmark -s /bin/bash proxmark; \
     mkdir -p /proxmark/saves
 
-COPY --from=prefs --chown=proxmark:proxmark /root/.proxmark3/preferences.json /root/.proxmark3/
-COPY scripts/proxmark3-docker /root/
+COPY --from=prefs /root/.proxmark3/preferences.json /root/.proxmark3/
+COPY --chmod=555 scripts/proxmark3-docker /root/
 
 VOLUME ["/proxmark/saves", "/proxmark/.proxmark3"]
 
