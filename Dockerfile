@@ -1,8 +1,10 @@
 ARG DEBIAN_VERSION="12.12"
 
 FROM debian:${DEBIAN_VERSION}-slim AS base
-ENV DEBIAN_FRONTEND=noninteractive
 
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install common packages
 RUN set -eux; \
     apt-get update; \
     apt-get upgrade -y; \
@@ -21,8 +23,7 @@ RUN set -eux; \
 
 FROM base AS builder
 
-ENV LANG=C
-
+# Install packages for compiling
 RUN set -eux; \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -35,21 +36,33 @@ RUN set -eux; \
 COPY proxmark3 /proxmark3
 WORKDIR /proxmark3
 
-ARG PROXMARK3_PLATFORM="PM3RDV4"
-ARG PROXMARK3_PLATFORM_EXTRAS=""
+ARG PROXMARK3_CUSTOM_PLATFORM=""
+ARG PROXMARK3_CUSTOM_PLATFORM_EXTRAS=""
 
 RUN set -eux; \
     make clean; \
+    \
+    # Full build with firmware for Proxmark3 RDV4
     make -j; \
     make install DESTDIR=build PREFIX=/usr UDEV_PREFIX=/lib/udev/rules.d; \
+    \
+    # Firmware for generic Proxmark3
     make -j fullimage PLATFORM=PM3GENERIC; \
     make fullimage/install PLATFORM=PM3GENERIC DESTDIR=build PREFIX=/usr FWTAG=generic; \
+    \
+    # Firmware for iCopy-X with XC3S100E
     make -j fullimage PLATFORM=PM3ICOPYX; \
     make fullimage/install PLATFORM=PM3ICOPYX DESTDIR=build PREFIX=/usr FWTAG=icopyx; \
+    \
+    # Firmware for Proxmark3 Ultimate with XC2S50
     make -j fullimage PLATFORM=PM3ULTIMATE; \
     make fullimage/install PLATFORM=PM3ULTIMATE DESTDIR=build PREFIX=/usr FWTAG=ultimate; \
-    make -j fullimage PLATFORM="${PROXMARK3_PLATFORM}" PLATFORM_EXTRAS="${PROXMARK3_PLATFORM_EXTRAS}"; \
-    make fullimage/install PLATFORM="${PROXMARK3_PLATFORM}" PLATFORM_EXTRAS="${PROXMARK3_PLATFORM_EXTRAS}" DESTDIR=build PREFIX=/usr FWTAG=custom
+    \
+    # Firmware for custom platform (optional)
+    if [ -n "${PROXMARK3_CUSTOM_PLATFORM}" ]; then \
+        make -j fullimage PLATFORM="${PROXMARK3_CUSTOM_PLATFORM}" PLATFORM_EXTRAS="${PROXMARK3_CUSTOM_PLATFORM_EXTRAS}"; \
+        make fullimage/install PLATFORM="${PROXMARK3_CUSTOM_PLATFORM}" PLATFORM_EXTRAS="${PROXMARK3_CUSTOM_PLATFORM_EXTRAS}" DESTDIR=build PREFIX=/usr FWTAG=custom; \
+    fi
 
 
 FROM base AS build
@@ -63,27 +76,27 @@ COPY --chmod=775 scripts/pm3-firmwares /usr/bin/
 
 FROM build AS prefs
 
+# Generate default preferences
 RUN set -eux; \
     pm3 --offline -c "prefs set savepaths --def /proxmark/saves; prefs set savepaths --dump /proxmark/saves; prefs set savepaths --trace /proxmark/saves; prefs set color --ansi; prefs set emoji --emoji"
 
 
 FROM build AS image
 
+# Install packages for the final image
 RUN set -eux; \
     apt-get install -y --no-install-recommends \
         gosu \
         tini; \
     rm -rf /var/lib/apt/lists/*; \
+    \
+    # Validate the installation of gosu
     gosu nobody true
 
-ARG USER_NAME=proxmark3
-ARG GROUP_NAME=proxmark3
+ENV UID=1000 \
+    GID=1000
 
-ARG UID=1000
-ARG GID=1000
-
-ENV UID=${UID} USER_NAME=${USER_NAME} GID=${GID} GROUP_NAME=${GROUP_NAME}
-
+# Prepare the non-root user
 RUN set -eux; \
     groupadd --gid ${GID} proxmark; \
     useradd -m -u ${UID} -g ${GID} -G dialout -d /proxmark -s /bin/bash proxmark; \
