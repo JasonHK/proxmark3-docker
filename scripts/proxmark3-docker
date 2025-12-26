@@ -26,7 +26,7 @@ fi
 
 if [ ! -f /proxmark/.proxmark3/preferences.json ]; then
     mkdir -p /proxmark/.proxmark3
-    cp -f /root/.proxmark3/preferences.json /proxmark/.proxmark3/
+    gosu proxmark cp /etc/proxmark3/preferences.json /proxmark/.proxmark3/
     chown proxmark:proxmark /proxmark/.proxmark3/preferences.json
 fi
 

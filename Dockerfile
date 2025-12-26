@@ -111,7 +111,7 @@ RUN set -eux; \
     useradd -m -u ${UID} -g ${GID} -G dialout -d /proxmark -s /bin/bash proxmark; \
     mkdir -p /proxmark/saves
 
-COPY --from=prefs /root/.proxmark3/preferences.json /root/.proxmark3/
+COPY --from=prefs --chmod=655 /root/.proxmark3/preferences.json /etc/proxmark3/
 COPY --chmod=555 scripts/proxmark3-docker /root/
 
 VOLUME ["/proxmark/saves", "/proxmark/.proxmark3"]
