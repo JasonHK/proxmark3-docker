@@ -64,7 +64,7 @@ COPY --chmod=775 scripts/pm3-firmwares /usr/bin/
 FROM build AS prefs
 
 RUN set -eux; \
-    pm3 --offline -c "prefs set savepaths --def /proxmark3/saves; prefs set savepaths --dump /proxmark3/saves; prefs set savepaths --trace /proxmark3/saves; prefs set color --ansi; prefs set emoji --emoji"
+    pm3 --offline -c "prefs set savepaths --def /proxmark/saves; prefs set savepaths --dump /proxmark/saves; prefs set savepaths --trace /proxmark/saves; prefs set color --ansi; prefs set emoji --emoji"
 
 
 FROM build AS image
@@ -85,15 +85,15 @@ ARG GID=1000
 ENV UID=${UID} USER_NAME=${USER_NAME} GID=${GID} GROUP_NAME=${GROUP_NAME}
 
 RUN set -eux; \
-    groupadd --gid ${GID} ${GROUP_NAME}; \
-    useradd -m -u ${UID} -g ${GID} -G dialout -d /proxmark3 -s /bin/bash ${USER_NAME}; \
-    mkdir -p /proxmark3/saves
+    groupadd --gid ${GID} proxmark; \
+    useradd -m -u ${UID} -g ${GID} -G dialout -d /proxmark -s /bin/bash proxmark; \
+    mkdir -p /proxmark/saves
 
-COPY --from=prefs --chown=${USER_NAME}:${GROUP_NAME} /root/.proxmark3/preferences.json /root/.proxmark3/
+COPY --from=prefs --chown=proxmark:proxmark /root/.proxmark3/preferences.json /root/.proxmark3/
 COPY scripts/proxmark3-docker /root/
 
-VOLUME ["/proxmark3/saves", "/proxmark3/.proxmark3"]
+VOLUME ["/proxmark/saves", "/proxmark/.proxmark3"]
 
-WORKDIR /proxmark3
-ENTRYPOINT ["/root/proxmark3-docker"]
+WORKDIR /proxmark
+ENTRYPOINT ["tini", "--", "/root/proxmark3-docker"]
 CMD ["pm3"]

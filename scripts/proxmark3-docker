@@ -1,19 +1,32 @@
 #!/bin/bash
 set -euo pipefail
 
-if [ "$(id --group "$USER_NAME")" -ne "$GID" ]; then
-    groupmod --gid "$GID" "$GROUP_NAME"
+if [ "$UID" -lt 1000 ] || [ "$UID" -gt 65533 ]; then
+    echo "Error: UID must be between 1000-65533" >&2
+    exit 1
 fi
 
-if [ "$(id --user "$USER_NAME")" -ne "$UID" ]; then
-    usermod --uid "$UID" --gid "$GID" "$USER_NAME"
+if [ "$GID" -lt 1000 ] || [ "$GID" -gt 65533 ]; then
+    echo "Error: GID must be between 1000-65533" >&2
+    exit 1
 fi
 
-if [ ! -f /proxmark3/.proxmark3/preferences.json ]; then
-    mkdir -p /proxmark3/.proxmark3
-    cp /root/.proxmark3/preferences.json /proxmark3/.proxmark3/
+if [ "$(id --group proxmark)" -ne "$GID" ]; then
+    groupmod --gid "$GID" proxmark
 fi
 
-chown --recursive "${USER_NAME}:${GROUP_NAME}" /proxmark3
+if [ "$(id --user proxmark)" -ne "$UID" ]; then
+    usermod --uid "$UID" --gid "$GID" proxmark
+fi
 
-exec gosu "$USER_NAME" "$@"
+if [ ! -f /proxmark/.proxmark3/preferences.json ]; then
+    mkdir -p /proxmark/.proxmark3
+    cp /root/.proxmark3/preferences.json /proxmark/.proxmark3/
+fi
+
+if [ "$(stat -c '%u:%g' /proxmark)" != "${UID}:${GID}" ]; then
+    find /proxmark -xdev \( -type d -o -type f \) \
+        -exec chown "${UID}:${GID}" {} +
+fi
+
+exec gosu proxmark "$@"
