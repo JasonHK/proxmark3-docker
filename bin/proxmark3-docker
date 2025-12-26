@@ -43,9 +43,9 @@ OPTIONS:
     -h, --help              Show this help message
 
 VOLUME MOUNTS:
-    Saves:    <saves-path> → /proxmark/saves
-    Config:   <config-path> → /proxmark/.proxmark3 (unless --no-config)
-    Device:  /dev/tty0 → /dev/tty0 (for pm3 compatibility check)
+    Saves : <saves-path> → /proxmark/saves
+    Config: <config-path> → /proxmark/.proxmark3 (unless --no-config)
+    Device: /dev/tty0 → /dev/tty0 (for pm3 compatibility check)
 
 EXAMPLES:
     # Run with auto-detected device and default paths
@@ -139,8 +139,8 @@ while [[ $# -gt 0 ]]; do
             ;;
         -d|--device)
             if [[ -n "$DEVICE" ]]; then
-                log_warn "Device already set to:  $DEVICE"
-                log_warn "Overriding with:  $2"
+                log_warn "Device already set to: $DEVICE"
+                log_warn "Overriding with: $2"
             fi
             DEVICE="$2"
             shift 2
@@ -213,7 +213,7 @@ fi
 
 # Create and validate saves directory
 if [[ ! -d "$SAVES_PATH" ]]; then
-    log_info "Creating saves directory:  $SAVES_PATH"
+    log_info "Creating saves directory: $SAVES_PATH"
     mkdir -p "$SAVES_PATH"
 fi
 
