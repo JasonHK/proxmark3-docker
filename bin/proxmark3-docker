@@ -260,10 +260,11 @@ else
     # Recommended security settings
     DOCKER_ARGS+=(
         "--security-opt=no-new-privileges"
-        # "--cap-drop=ALL"
+        "--cap-drop=ALL"
         "--cap-add=CHOWN"
-        "--cap-add=SETUID"
+        "--cap-add=DAC_OVERRIDE"
         "--cap-add=SETGID"
+        "--cap-add=SETUID"
     )
 fi
 
