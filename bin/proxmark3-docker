@@ -12,6 +12,7 @@ IMAGE_NAME="imjasonhk/proxmark3"
 IMAGE_TAG="latest"
 INTERACTIVE=true
 REMOVE_CONTAINER=true
+LOG_LEVEL="warn"
 
 # Colors for output
 RED='\033[0;31m'
@@ -37,6 +38,7 @@ OPTIONS:
     --no-config             Don't mount config directory (use container defaults)
     -i, --image IMAGE       Docker image name (default: imjasonhk/proxmark3)
     -t, --tag TAG           Docker image tag (default: latest)
+    --log LEVEL             Set log level: debug, info, warn, error (default: warn)
     --no-interactive        Run in non-interactive mode
     --no-remove             Don't remove container after exit
     --privileged            Run with --privileged flag (NOT RECOMMENDED)
@@ -74,20 +76,24 @@ EOF
 
 # Logging functions
 log_info() {
-    echo -e "${GREEN}[I]${NC} $*"
+    if [[ "$LOG_LEVEL" == "debug" ]] || [[ "$LOG_LEVEL" == "info" ]]; then
+        echo -e "[${GREEN}I${NC}] $*"
+    fi
 }
 
 log_warn() {
-    echo -e "${YELLOW}[W]${NC} $*" >&2
+    if [[ "$LOG_LEVEL" == "debug" ]] || [[ "$LOG_LEVEL" == "info" ]] || [[ "$LOG_LEVEL" == "warn" ]]; then
+        echo -e "[${YELLOW}W${NC}] $*" >&2
+    fi
 }
 
 log_error() {
-    echo -e "${RED}[E]${NC} $*" >&2
+    echo -e "[${RED}E${NC}] $*" >&2
 }
 
 log_debug() {
-    if [[ "${DEBUG:-}" == "1" ]]; then
-        echo -e "${BLUE}[D]${NC} $*" >&2
+    if [[ "$LOG_LEVEL" == "debug" ]]; then
+        echo -e "[${BLUE}D${NC}] $*" >&2
     fi
 }
 
@@ -103,11 +109,30 @@ auto_detect_device() {
     done
     
     if [[ ${#devices[@]} -eq 0 ]]; then
-        log_warn "No Proxmark3 device detected" >&2
-        log_warn "Available options:" >&2
-        log_warn "  - Connect your Proxmark3 device" >&2
-        log_warn "  - Specify a device manually with -d/--device" >&2
-        log_warn "  - Run without device for offline operations (e.g., pm3-firmwares)" >&2
+        # Check if we need to warn based on the command being run
+        local needs_device=false
+        
+        # Check if any arguments were passed
+        if [[ $# -gt 0 ]]; then
+            local cmd="$1"
+            # Warn only for commands that need a device
+            case "$cmd" in
+                proxmark3|pm3|pm3-flash*|pm3-*)
+                    # Exception: pm3-firmwares doesn't need a device
+                    if [[ "$cmd" != "pm3-firmwares" ]]; then
+                        needs_device=true
+                    fi
+                    ;;
+            esac
+        else
+            # No command specified, default will need device
+            needs_device=true
+        fi
+        
+        if [[ "$needs_device" == true ]]; then
+            log_warn "No Proxmark3 device detected, the container will be started without it" >&2
+            log_warn "Connect your Proxmark3 device or specify one manually with -d/--device" >&2
+        fi
         return 1
     elif [[ ${#devices[@]} -eq 1 ]]; then
         # Output only to stderr to avoid polluting stdout
@@ -165,6 +190,18 @@ while [[ $# -gt 0 ]]; do
             IMAGE_TAG="$2"
             shift 2
             ;;
+        --log)
+            case "$2" in
+                debug|info|warn|error)
+                    LOG_LEVEL="$2"
+                    ;;
+                *)
+                    log_error "Invalid log level: $2 (must be: debug, info, warn, error)"
+                    exit 1
+                    ;;
+            esac
+            shift 2
+            ;;
         --no-interactive)
             INTERACTIVE=false
             shift
@@ -206,7 +243,7 @@ fi
 
 # Auto-detect device if not specified
 if [[ -z "$DEVICE" ]]; then
-    if detected_device=$(auto_detect_device); then
+    if detected_device=$(auto_detect_device "$@"); then
         DEVICE="$detected_device"
     fi
 fi
@@ -346,7 +383,7 @@ fi
 log_info "════════════════════════════════════════════════════════════"
 
 # Show the actual docker command in debug mode
-if [[ "${DEBUG:-}" == "1" ]]; then
+if [[ "$LOG_LEVEL" == "debug" ]]; then
     log_debug "Full docker command:"
     log_debug "docker ${DOCKER_ARGS[*]}"
 fi
