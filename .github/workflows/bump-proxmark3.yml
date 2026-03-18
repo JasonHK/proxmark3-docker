@@ -31,6 +31,7 @@ jobs:
           ref: master
           fetch-depth: 0
           submodules: recursive
+
       - uses: fregante/setup-git-user@v2.0.2
 
       - name: Update Proxmark3 Submodule
@@ -103,6 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 5
       matrix:
         tag: ${{ fromJson(needs.bump-master.outputs.release_tags) }}
     steps:
@@ -111,6 +113,7 @@ jobs:
           ref: master
           fetch-depth: 0
           submodules: recursive
+
       - uses: fregante/setup-git-user@v2.0.2
 
       - name: Create Release Branch for Tag
