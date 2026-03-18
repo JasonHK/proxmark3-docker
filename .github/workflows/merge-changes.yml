@@ -1,0 +1,82 @@
+name: Merge master Changes
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - proxmark3
+      - proxmark3/**
+  workflow_dispatch:
+
+concurrency:
+  group: merge-changes
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_BRANCHES_PREFIX: release/
+
+jobs:
+  list-release-branches:
+    name: List Release Branches
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.list-branches.outputs.branches }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - id: list-branches
+        uses: ./.github/actions/list-branches
+        with:
+          pattern: release/*
+
+  merge-changes-to-releases:
+    name: Merge Changes to Release
+    needs: list-release-branches
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        branch: ${{ fromJSON(needs.list-release-branches.outputs.branches) }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+
+      - uses: fregante/setup-git-user@v2.0.2
+
+      - name: Merge master into the Branch
+        run: |
+          set -euo pipefail
+          branch='${{ matrix.branch }}'
+
+          # Merge latest master but stop before commit so we can preserve the release branch's proxmark3 submodule pointer.
+          if ! git merge --no-ff --no-commit origin/master; then
+            # If conflicts are outside proxmark3, fail this branch merge.
+            if git diff --name-only --diff-filter=U | grep -vx 'proxmark3' >/dev/null; then
+              echo "Merge conflict outside proxmark3 on $branch"
+              git diff --name-only --diff-filter=U
+              git merge --abort
+              exit 1
+            fi
+          fi
+
+          # Always keep the submodule commit pinned by this release branch.
+          git restore --source=HEAD --staged --worktree proxmark3
+
+          if git diff --quiet HEAD --; then
+            echo "No changes for $branch"
+            git rev-parse -q --verify MERGE_HEAD >/dev/null && git merge --abort || true
+          else
+            git add -A
+            git commit --message="chore: merge changes from master into $branch"
+            git push origin "$branch"
+          fi

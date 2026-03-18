@@ -1,0 +1,54 @@
+name: List Branches
+description: List git branches from a repository path
+
+inputs:
+  path:
+    description: Path to the git repository
+    required: false
+    default: "."
+  pattern:
+    description: Glob-like branch name pattern (for example, feature/*)
+    required: false
+    default: "*"
+
+outputs:
+  branches:
+    description: JSON array of matching branch names
+    value: ${{ steps.list.outputs.branches }}
+
+runs:
+  using: composite
+  steps:
+    - name: List Branches
+      id: list
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        repo_path='${{ inputs.path }}'
+        pattern='${{ inputs.pattern }}'
+
+        if [ ! -d "$repo_path" ]; then
+          echo "Repository path not found: $repo_path" >&2
+          exit 1
+        fi
+
+        if ! git -C "$repo_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          echo "Not a Git repository: $repo_path" >&2
+          exit 1
+        fi
+
+        mapfile -t branches < <(
+          git -C "$repo_path" branch --format='%(refname:short)' --list "$pattern" | awk 'NF'
+        )
+
+        if [ "${#branches[@]}" -eq 0 ]; then
+          echo "No branches found."
+          echo 'branches=[]' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        branches_json="$(printf '%s\n' "${branches[@]}" | python3 -c 'import json,sys; print(json.dumps([ln.strip() for ln in sys.stdin if ln.strip()]))')"
+
+        echo "branches=${branches_json}" >> "$GITHUB_OUTPUT"
+        echo "Found branches: ${branches_json}"
