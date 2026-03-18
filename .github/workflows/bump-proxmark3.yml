@@ -47,7 +47,7 @@ jobs:
             echo "No submodule change on master."
           else
             git add "$SUBMODULE_PATH"
-            commit_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short=12 HEAD)"
+            commit_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short HEAD)"
             git commit -m "deps(proxmark3): bump to ${PROXMARK3_REPO}@${commit_hash}"
             git push origin master
           fi
@@ -132,7 +132,7 @@ jobs:
           git -C "$SUBMODULE_PATH" checkout -f "${tag}"
 
           git add "$SUBMODULE_PATH"
-          upstream_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short=12 HEAD)"
+          upstream_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short HEAD)"
           git commit --allow-empty --message="deps(proxmark3): pin to ${tag} (${PROXMARK3_REPO}@${upstream_hash})"
           git push -u origin "${branch}"
 
