@@ -35,6 +35,7 @@ jobs:
         uses: ./.github/actions/list-branches
         with:
           pattern: release/*
+          includes_remote: true
 
   merge-changes-to-releases:
     name: Merge Changes to Release

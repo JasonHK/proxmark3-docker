@@ -10,6 +10,10 @@ inputs:
     description: Glob-like branch name pattern (for example, feature/*)
     required: false
     default: "*"
+  includes_remote:
+    description: Include remote origin branches (including branches that exist only on remote)
+    required: false
+    default: "false"
 
 outputs:
   branches:
@@ -27,6 +31,7 @@ runs:
 
         repo_path='${{ inputs.path }}'
         pattern='${{ inputs.pattern }}'
+        includes_remote='${{ inputs.includes_remote }}'
 
         if [ ! -d "$repo_path" ]; then
           echo "Repository path not found: $repo_path" >&2
@@ -38,9 +43,25 @@ runs:
           exit 1
         fi
 
-        mapfile -t branches < <(
+        mapfile -t local_branches < <(
           git -C "$repo_path" branch --format='%(refname:short)' --list "$pattern" | awk 'NF'
         )
+
+        branches=("${local_branches[@]}")
+
+        if [ "$includes_remote" = "true" ]; then
+          mapfile -t remote_branches < <(
+            git -C "$repo_path" for-each-ref --format='%(refname:short)' "refs/remotes/origin/${pattern}" \
+              | sed 's#^origin/##' \
+              | awk 'NF && $0 != "HEAD"'
+          )
+
+          if [ "${#remote_branches[@]}" -gt 0 ]; then
+            mapfile -t branches < <(
+              printf '%s\n' "${branches[@]}" "${remote_branches[@]}" | awk 'NF' | sort -u
+            )
+          fi
+        fi
 
         if [ "${#branches[@]}" -eq 0 ]; then
           echo "No branches found."
