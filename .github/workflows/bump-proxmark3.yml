@@ -31,6 +31,7 @@ jobs:
           ref: master
           fetch-depth: 0
           submodules: recursive
+
       - uses: fregante/setup-git-user@v2.0.2
 
       - name: Update Proxmark3 Submodule
@@ -47,7 +48,7 @@ jobs:
             echo "No submodule change on master."
           else
             git add "$SUBMODULE_PATH"
-            commit_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short=12 HEAD)"
+            commit_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short HEAD)"
             git commit -m "deps(proxmark3): bump to ${PROXMARK3_REPO}@${commit_hash}"
             git push origin master
           fi
@@ -103,6 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 5
       matrix:
         tag: ${{ fromJson(needs.bump-master.outputs.release_tags) }}
     steps:
@@ -111,6 +113,7 @@ jobs:
           ref: master
           fetch-depth: 0
           submodules: recursive
+
       - uses: fregante/setup-git-user@v2.0.2
 
       - name: Create Release Branch for Tag
@@ -132,7 +135,7 @@ jobs:
           git -C "$SUBMODULE_PATH" checkout -f "${tag}"
 
           git add "$SUBMODULE_PATH"
-          upstream_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short=12 HEAD)"
+          upstream_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short HEAD)"
           git commit --allow-empty --message="deps(proxmark3): pin to ${tag} (${PROXMARK3_REPO}@${upstream_hash})"
           git push -u origin "${branch}"
 
