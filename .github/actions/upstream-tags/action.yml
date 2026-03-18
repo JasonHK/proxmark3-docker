@@ -1,0 +1,51 @@
+name: Upstream Tags
+description: List upstream tags from a git submodule
+
+inputs:
+  submodule_path:
+    description: Path to the git submodule
+    required: true
+  tag_pattern:
+    description: Tag glob pattern to match in upstream submodule
+    required: false
+    default: "v*"
+
+outputs:
+  tags:
+    description: JSON array of upstream tags
+    value: ${{ steps.list.outputs.tags }}
+  has_tags:
+    description: Whether any upstream tags were found
+    value: ${{ steps.list.outputs.has_tags }}
+
+runs:
+  using: composite
+  steps:
+    - name: List Upstream Tags
+      id: list
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        submodule_path='${{ inputs.submodule_path }}'
+        tag_pattern='${{ inputs.tag_pattern }}'
+
+        git fetch --all --prune
+        git -C "$submodule_path" fetch --tags origin
+
+        mapfile -t tags < <(
+          git -C "$submodule_path" tag -l "$tag_pattern" | sort -V | awk 'NF'
+        )
+
+        if [ "${#tags[@]}" -eq 0 ]; then
+          echo "No upstream tags found."
+          echo 'tags=[]' >> "$GITHUB_OUTPUT"
+          echo 'has_tags=false' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        tags_json="$(printf '%s\n' "${tags[@]}" | python3 -c 'import json,sys; print(json.dumps([ln.strip() for ln in sys.stdin if ln.strip()]))')"
+
+        echo "tags=${tags_json}" >> "$GITHUB_OUTPUT"
+        echo 'has_tags=true' >> "$GITHUB_OUTPUT"
+        echo "Found tags: ${tags_json}"

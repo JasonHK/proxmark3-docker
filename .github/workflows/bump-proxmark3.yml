@@ -1,0 +1,138 @@
+name: Bump Proxmark3
+
+on:
+  schedule:
+    - cron: 11 21 * * *
+  workflow_dispatch:
+
+concurrency: 
+  group: sync-upstream
+  cancel-in-progress: false
+
+permissions: 
+  contents: write
+
+env:
+  PROXMARK3_REPO: RfidResearchGroup/proxmark3
+  SUBMODULE_PATH: proxmark3
+  UPSTREAM_BRANCH: master
+  RELEASE_BRANCH_PREFIX: release/
+
+jobs:
+  bump-master:
+    name: Bump Proxmark3 for master
+    runs-on: ubuntu-latest
+    outputs:
+      releases_tagged: ${{ steps.filter_release_tags.outputs.releases_tagged }}
+      release_tags: ${{ steps.filter_release_tags.outputs.release_tags }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: master
+          fetch-depth: 0
+          submodules: recursive
+      - uses: fregante/setup-git-user@v2.0.2
+
+      - name: Update Proxmark3 Submodule
+        run: |
+          set -euo pipefail
+          REPO_ROOT=$PWD
+
+          cd "$SUBMODULE_PATH"
+          git fetch --prune --tags origin
+          git checkout --force -B "$UPSTREAM_BRANCH" "origin/$UPSTREAM_BRANCH"
+          cd "$REPO_ROOT"
+
+          if git diff --quiet -- "$SUBMODULE_PATH"; then
+            echo "No submodule change on master."
+          else
+            git add "$SUBMODULE_PATH"
+            commit_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short=12 HEAD)"
+            git commit -m "deps(proxmark3): bump to ${PROXMARK3_REPO}@${commit_hash}"
+            git push origin master
+          fi
+
+      - name: List Upstream Tags
+        id: upstream_tags
+        uses: ./.github/actions/upstream-tags
+        with:
+          submodule_path: ${{ env.SUBMODULE_PATH }}
+          tag_pattern: "v*"
+
+      - name: Filter Missing Release Branches
+        id: filter_release_tags
+        run: |
+          set -euo pipefail
+          git fetch --all --prune
+
+          all_tags='${{ steps.upstream_tags.outputs.tags }}'
+          if [ -z "$all_tags" ] || [ "$all_tags" = "[]" ]; then
+            echo "No upstream tags to evaluate."
+            echo 'release_tags=[]' >> "$GITHUB_OUTPUT"
+            echo 'releases_tagged=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          missing_tags="$({
+            python3 -c 'import json,sys; [print(t) for t in json.loads(sys.argv[1])] ' "$all_tags"
+          } | while read -r tag; do
+            [ -z "$tag" ] && continue
+            branch="${RELEASE_BRANCH_PREFIX}${tag}"
+            if git show-ref --verify --quiet "refs/remotes/origin/${branch}"; then
+              continue
+            fi
+            echo "$tag"
+          done)"
+
+          if [ -z "$missing_tags" ]; then
+            echo "No new release tags to process."
+            echo 'release_tags=[]' >> "$GITHUB_OUTPUT"
+            echo 'releases_tagged=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          tags_json="$(printf '%s\n' "$missing_tags" | python3 -c 'import json,sys; print(json.dumps([ln.strip() for ln in sys.stdin if ln.strip()]))')"
+          echo "release_tags=${tags_json}" >> "$GITHUB_OUTPUT"
+          echo 'releases_tagged=true' >> "$GITHUB_OUTPUT"
+          echo "Queued tags: ${tags_json}"
+
+  create-release-branches:
+    name: Create Release Branch
+    needs: bump-master
+    if: needs.bump-master.outputs.releases_tagged == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJson(needs.bump-master.outputs.release_tags) }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: master
+          fetch-depth: 0
+          submodules: recursive
+      - uses: fregante/setup-git-user@v2.0.2
+
+      - name: Create Release Branch for Tag
+        run: |
+          set -euo pipefail
+          tag='${{ matrix.tag }}'
+          branch="${RELEASE_BRANCH_PREFIX}${tag}"
+
+          git fetch --all --prune
+          if git ls-remote --exit-code --heads origin "${branch}" > /dev/null 2>&1; then
+            echo "Exists: ${branch}"
+            exit 0
+          fi
+
+          echo "Creating: ${branch} from master"
+          git checkout -B "${branch}" origin/master
+
+          git -C "$SUBMODULE_PATH" fetch --tags origin
+          git -C "$SUBMODULE_PATH" checkout -f "${tag}"
+
+          git add "$SUBMODULE_PATH"
+          upstream_hash="$(git -C "$SUBMODULE_PATH" rev-parse --short=12 HEAD)"
+          git commit --allow-empty --message="deps(proxmark3): pin to ${tag} (${PROXMARK3_REPO}@${upstream_hash})"
+          git push -u origin "${branch}"
+
