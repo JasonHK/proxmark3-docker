@@ -44,7 +44,7 @@ runs:
           exit 0
         fi
 
-        tags_json="$(printf '%s\n' "${tags[@]}" | python3 -c 'import json,sys; print(json.dumps([ln.strip() for ln in sys.stdin if ln.strip()]))')"
+        tags_json=$(jq --compact-output --null-input '$ARGS.positional' --args "${tags[@]}")
 
         echo "tags=${tags_json}" >> "$GITHUB_OUTPUT"
         echo 'has_tags=true' >> "$GITHUB_OUTPUT"
