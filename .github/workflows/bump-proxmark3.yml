@@ -66,33 +66,33 @@ jobs:
           set -euo pipefail
           git fetch --all --prune
 
-          all_tags='${{ steps.upstream_tags.outputs.tags }}'
-          if [ -z "$all_tags" ] || [ "$all_tags" = "[]" ]; then
+          all_tags=()
+          readarray -t all_tags < <(echo '${{ steps.upstream_tags.outputs.tags }}' | jq --raw-output '.[]')
+          if [ "${#all_tags[@]}" -eq 0 ]; then
             echo "No upstream tags to evaluate."
             echo 'release_tags=[]' >> "$GITHUB_OUTPUT"
             echo 'releases_tagged=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          missing_tags="$({
-            python3 -c 'import json,sys; [print(t) for t in json.loads(sys.argv[1])] ' "$all_tags"
-          } | while read -r tag; do
+          missing_tags=()
+          for tag in "${all_tags[@]}"; do
             [ -z "$tag" ] && continue
             branch="${RELEASE_BRANCH_PREFIX}${tag}"
             if git show-ref --verify --quiet "refs/remotes/origin/${branch}"; then
               continue
             fi
-            echo "$tag"
-          done)"
+            missing_tags+=("$tag")
+          done
 
-          if [ -z "$missing_tags" ]; then
+          if [ "${#missing_tags[@]}" -eq 0 ]; then
             echo "No new release tags to process."
             echo 'release_tags=[]' >> "$GITHUB_OUTPUT"
             echo 'releases_tagged=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          tags_json="$(printf '%s\n' "$missing_tags" | python3 -c 'import json,sys; print(json.dumps([ln.strip() for ln in sys.stdin if ln.strip()]))')"
+          tags_json=$(jq --compact-output --null-input '$ARGS.positional' --args "${missing_tags[@]}")
           echo "release_tags=${tags_json}" >> "$GITHUB_OUTPUT"
           echo 'releases_tagged=true' >> "$GITHUB_OUTPUT"
           echo "Queued tags: ${tags_json}"
