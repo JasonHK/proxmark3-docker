@@ -69,7 +69,7 @@ runs:
           exit 0
         fi
 
-        branches_json="$(printf '%s\n' "${branches[@]}" | python3 -c 'import json,sys; print(json.dumps([ln.strip() for ln in sys.stdin if ln.strip()]))')"
+        branches_json=$(jq --compact-output --null-input --args "${branches[@]}" '$ARGS.positional')
 
         echo "branches=${branches_json}" >> "$GITHUB_OUTPUT"
         echo "Found branches: ${branches_json}"
