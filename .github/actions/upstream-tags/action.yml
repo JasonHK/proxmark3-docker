@@ -44,7 +44,7 @@ runs:
           exit 0
         fi
 
-        tags_json=$(jq --compact-output --null-input --args "${tags[@]}" '$ARGS.positional')
+        tags_json=$(jq --compact-output --null-input '$ARGS.positional' --args "${tags[@]}")
 
         echo "tags=${tags_json}" >> "$GITHUB_OUTPUT"
         echo 'has_tags=true' >> "$GITHUB_OUTPUT"

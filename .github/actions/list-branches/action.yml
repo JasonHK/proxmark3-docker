@@ -69,7 +69,7 @@ runs:
           exit 0
         fi
 
-        branches_json=$(jq --compact-output --null-input --args "${branches[@]}" '$ARGS.positional')
+        branches_json=$(jq --compact-output --null-input '$ARGS.positional' --args "${branches[@]}")
 
         echo "branches=${branches_json}" >> "$GITHUB_OUTPUT"
         echo "Found branches: ${branches_json}"

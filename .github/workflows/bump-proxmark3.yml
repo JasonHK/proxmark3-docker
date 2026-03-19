@@ -92,7 +92,7 @@ jobs:
             exit 0
           fi
 
-          tags_json=$(jq --compact-output --null-input --args "${missing_tags[@]}" '$ARGS.positional')
+          tags_json=$(jq --compact-output --null-input '$ARGS.positional' --args "${missing_tags[@]}")
           echo "release_tags=${tags_json}" >> "$GITHUB_OUTPUT"
           echo 'releases_tagged=true' >> "$GITHUB_OUTPUT"
           echo "Queued tags: ${tags_json}"
